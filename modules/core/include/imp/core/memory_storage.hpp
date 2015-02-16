@@ -53,8 +53,11 @@ public:
     const size_type memory_size = sizeof(pixel_t) * num_elements;
     //std::cout << "memory_size=" << memory_size << "; sizeof(pixel_t)=" << sizeof(pixel_t) << std::endl;
 
-    pixel_container_t p_data_aligned =
-        (pixel_container_t)aligned_alloc(memaddr_align, memory_size);
+//    pixel_container_t p_data_aligned =
+//        (pixel_container_t)aligned_alloc(memaddr_align, memory_size);
+
+    pixel_container_t p_data_aligned;
+    posix_memalign((void**)&p_data_aligned, memaddr_align, memory_size);
 
     if (p_data_aligned == nullptr)
     {

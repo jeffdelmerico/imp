@@ -94,6 +94,11 @@ IF(WIN32)
   SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:LIBCMT.lib")
 endif(WIN32)
 
+if(APPLE)
+   add_definitions(-Wno-missing-braces)
+   set(CUDA_HOST_COMPILER "/usr/local/bin/g++-4.9")
+endif(APPLE)
+
 ##-----------------------------------------------------------------------------
 ## settings / options
 option(IMP_BUILD_SHARED_LIBS "Build shared libraries if ON (default) or static ones if OFF." ON)

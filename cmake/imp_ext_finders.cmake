@@ -15,6 +15,7 @@ macro(find_opencv)
   endif()
   set(IMP_LINK_DEPS "${IMP_LINK_DEPS};${OpenCV_LIBS}" CACHE INTERNAL
      "linkage dependencies for imp")
+  imp_debug("OpenCV_LIBS: ${OpenCV_LIBS}")
 endmacro()
 
 ##------------------------------------------------------------------------------

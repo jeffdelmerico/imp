@@ -124,9 +124,8 @@ template<typename T, std::uint8_t DIM>
 struct Roi
     : public RoiBase<T, DIM, Roi<T, DIM> >
 {
-  typedef RoiBase<T, DIM, Roi<T, DIM> > Base;
-
-  using Base::RoiBase;
+  using Base = RoiBase<T, DIM, Roi<T, DIM> >;
+  using Base::Base;
   Roi() = default;
   virtual ~Roi() = default;
 };
@@ -139,9 +138,8 @@ template<typename T>
 struct Roi<T, 2>
     : public RoiBase<T, 2, Roi<T, 2> >
 {
-  typedef RoiBase<T, 2, Roi<T, 2> > Base;
-
-  using Base::RoiBase;
+  using Base = RoiBase<T, 2, Roi<T, 2> >;
+  using Base::Base;
   Roi() = default;
   virtual ~Roi() = default;
 
