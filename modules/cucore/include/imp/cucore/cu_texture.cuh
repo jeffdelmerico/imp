@@ -17,7 +17,7 @@ namespace cu {
 struct Texture2D
 {
   cudaTextureObject_t tex_object;
-  __device__ __forceinline__ operator cudaTextureObject_t() const {return tex_object;}
+  __host__ __device__ __forceinline__ operator cudaTextureObject_t() const {return tex_object;}
 
   using Ptr = std::shared_ptr<Texture2D>;
   using UPtr = std::unique_ptr<Texture2D>;

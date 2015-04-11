@@ -59,8 +59,9 @@ public:
   // if we have a guess about the correspondence points and the epipolar geometry
   // given we can set these as a prior
   inline virtual void setFundamentalMatrix(const cu::Matrix3f& F) {F_ = F;}
-  virtual void setIntrinsics(const std::vector<cu::PinholeCamera>& cams) {cams_ = cams;}
-  virtual void setExtrinsics(const cu::SE3<float>& T_mov_fix) {T_mov_fix_=T_mov_fix;}
+  inline virtual void setEpipoles(const std::vector<imp::Vec32fC2>& epipoles) {epipoles_=epipoles;}
+  inline virtual void setIntrinsics(const std::vector<cu::PinholeCamera>& cams) {cams_ = cams;}
+  inline virtual void setExtrinsics(const cu::SE3<float>& T_mov_fix) {T_mov_fix_=T_mov_fix;}
 
   inline virtual void setDepthProposal(ImagePtr depth_proposal, ImagePtr depth_proposal_sigma2=nullptr)
   {
@@ -87,6 +88,7 @@ private:
   std::vector<std::unique_ptr<SolverStereoAbstract>> levels_;
 
   cu::Matrix3f F_;
+  std::vector<Vec32fC2> epipoles_;
   std::vector<cu::PinholeCamera> cams_;
   cu::SE3<float> T_mov_fix_;
 

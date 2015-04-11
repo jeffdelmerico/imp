@@ -42,6 +42,7 @@ public:
 
 //  virtual void setTransformation
   virtual void setFundamentalMatrix(const cu::Matrix3f& F);
+  virtual void setEpipoles(const std::vector<imp::Vec32fC2>& epipoles);
   virtual void setIntrinsics(const std::vector<cu::PinholeCamera>& cams);
   virtual void setExtrinsics(const cu::SE3<float>& T_mov_fix);
   virtual void setDepthProposal(ImagePtr depth_proposal, ImagePtr depth_proposal_sigma2=nullptr);

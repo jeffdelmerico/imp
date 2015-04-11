@@ -15,12 +15,13 @@
 #include <imp/cuimgproc/edge_detectors.cuh>
 
 #include "cu_k_warped_gradients.cuh"
-#include "cu_k_stereo_ctf_warping_level_precond_huber_l1.cuh"
+//#include "cu_k_stereo_ctf_warping_level_precond_huber_l1.cuh"
+#include "cu_k_solver_epipolar_stereo_precond_huber_l1.cuh"
 #include "cu_k_stereo_ctf_warping_level_precond_huber_l1_weighted.cuh"
 
 //#include "k_epipolar_stereo_precond_huber_l1.cu"
 
-#define USE_EDGES 1
+#define USE_EDGES 0
 
 namespace imp {
 namespace cu {
@@ -36,33 +37,39 @@ SolverEpipolarStereoPrecondHuberL1::SolverEpipolarStereoPrecondHuberL1(
     const std::shared_ptr<Parameters>& params, imp::Size2u size, size_type level,
     const std::vector<cu::PinholeCamera>& cams,
     const cu::Matrix3f& F,
+    const std::vector<Vec32fC2>& epipoles,
     const cu::SE3<float>& T_mov_fix,
     const imp::cu::ImageGpu32fC1& depth_proposal,
     const imp::cu::ImageGpu32fC1& depth_proposal_sigma2)
   : SolverStereoAbstract(params, size, level)
+  , F_(F)
+  , epipoles_(epipoles)
+  , T_mov_fix_(T_mov_fix)
+
 {
   u_.reset(new DisparityImage(size));
   u_prev_.reset(new Image(size));
   u0_.reset(new Image(size));
   pu_.reset(new VectorImage(size));
   q_.reset(new Image(size));
-  iw_.reset(new Image(size));
   ix_.reset(new Image(size));
   it_.reset(new Image(size));
   xi_.reset(new Image(size));
   g_.reset(new Image(size));
 
-  depth_proposal_.reset(new DisparityImage(size));
-  depth_proposal_sigma2_.reset(new DisparityImage(size));
+  mu_.reset(new DisparityImage(size));
+  sigma2_.reset(new DisparityImage(size));
+  pt_mu_.reset(new imp::cu::ImageGpu32fC2(size));
+  epi_vec_.reset(new imp::cu::ImageGpu32fC2(size));
 
   float scale_factor = std::pow(params->ctf.scale_factor, level);
 
   if (depth_proposal.size() == size)
   {
     LOG(INFO) << "Copy depth proposals " << depth_proposal.size() << " to level0 "
-              << depth_proposal_->size();
-    depth_proposal.copyTo(*depth_proposal_);
-    depth_proposal_sigma2.copyTo(*depth_proposal_sigma2_);
+              << mu_->size();
+    depth_proposal.copyTo(*mu_);
+    depth_proposal_sigma2.copyTo(*sigma2_);
   }
   else
   {
@@ -73,12 +80,9 @@ SolverEpipolarStereoPrecondHuberL1::SolverEpipolarStereoPrecondHuberL1(
       LOG(INFO) << "depth proposal downscaled to level: " << level << "; size: " << size
                 << "; downscale_factor: " << downscale_factor;
 
-    imp::cu::resample(*depth_proposal_, depth_proposal);
-    imp::cu::resample(*depth_proposal_sigma2_, depth_proposal_sigma2);
+    imp::cu::resample(*mu_, depth_proposal);
+    imp::cu::resample(*sigma2_, depth_proposal_sigma2);
   }
-
-  F_ = F;
-  T_mov_fix_ = T_mov_fix;
 
   // assuming we receive the camera matrix for level0
   if  (level == 0)
@@ -174,8 +178,10 @@ void SolverEpipolarStereoPrecondHuberL1::solve(std::vector<ImagePtr> images)
   it_tex_ =  it_->genTexture(false, cudaFilterModeLinear);
   xi_tex_ =  xi_->genTexture(false, cudaFilterModeLinear);
   g_tex_ =  g_->genTexture(false, cudaFilterModeLinear);
-  depth_proposal_tex_ =  depth_proposal_->genTexture(false, cudaFilterModeLinear);
-  depth_proposal_sigma2_tex_ =  depth_proposal_sigma2_->genTexture(false, cudaFilterModeLinear);
+  mu_tex_ =  mu_->genTexture(false, cudaFilterModeLinear);
+  sigma2_tex_ =  sigma2_->genTexture(false, cudaFilterModeLinear);
+  pt_mu_tex_ =  pt_mu_->genTexture(false, cudaFilterModeLinear);
+  epi_vec_tex_ =  epi_vec_->genTexture(false, cudaFilterModeLinear);
 
 
 
@@ -198,14 +204,17 @@ void SolverEpipolarStereoPrecondHuberL1::solve(std::vector<ImagePtr> images)
     k_warpedGradientsEpipolarConstraint
         <<<
           frag.dimGrid, frag.dimBlock
-        >>> (iw_->data(), ix_->data(), it_->data(), ix_->stride(), ix_->width(), ix_->height(),
+        >>> (ix_->data(), it_->data(), ix_->stride(),
+             //todo mas
+             pt_mu_->data(), epi_vec_->data(), pt_mu_->stride(),
+             size_.width(), size_.height(),
              cams_.at(0), cams_.at(1), F_, T_mov_fix_,
              *i1_tex_, *i2_tex_, *u0_tex_,
-             *depth_proposal_tex_);
+             *mu_tex_);
 
     // compute preconditioner
+    //! @todo  (MWE) fix preconditioner with pointwise lambda!
 #if USE_EDGES
-    // compute preconditioner
     k_preconditionerWeighted
         <<<
           frag.dimGrid, frag.dimBlock
@@ -222,12 +231,13 @@ void SolverEpipolarStereoPrecondHuberL1::solve(std::vector<ImagePtr> images)
     for (std::uint32_t iter = 0; iter < params_->ctf.iters; ++iter)
     {
       // dual update kernel
-      k_dualUpdate
+      k_epiDualUpdate
           <<<
             frag.dimGrid, frag.dimBlock
           >>> (pu_->data(), pu_->stride(), q_->data(), q_->stride(),
                size_.width(), size_.height(),
-               params_->eps_u, sigma, eta, *lambda_tex_,
+               epipoles_.at(0),
+               params_->lambda, params_->eps_u, sigma, eta, //*lambda_tex_,
                *u_prev_tex_, *u0_tex_, *pu_tex_, *q_tex_, *ix_tex_, *it_tex_);
 
       // and primal update kernel
@@ -241,12 +251,13 @@ void SolverEpipolarStereoPrecondHuberL1::solve(std::vector<ImagePtr> images)
                tau, lin_step, *lambda_tex_,
                *u_tex_, *u0_tex_, *pu_tex_, *q_tex_, *ix_tex_, *xi_tex_, *g_tex_);
 #else
-      k_primalUpdate
+      k_epiPrimalUpdate
           <<<
             frag.dimGrid, frag.dimBlock
           >>> (u_->data(), u_prev_->data(), u_->stride(),
                size_.width(), size_.height(),
-               tau, lin_step, *lambda_tex_,
+               epipoles_.at(0),
+               params_->lambda, tau, lin_step, //*lambda_tex_,
                *u_tex_, *u0_tex_, *pu_tex_, *q_tex_, *ix_tex_, *xi_tex_);
 #endif
     } // iters

@@ -66,7 +66,7 @@ void StereoCtFWarping::init()
       }
 
       levels_.emplace_back(new SolverEpipolarStereoPrecondHuberL1(
-                             params_, sz, i, cams_, F_, T_mov_fix_,
+                             params_, sz, i, cams_, F_, epipoles_, T_mov_fix_,
                              *depth_proposal_, *depth_proposal_sigma2_));
     }
     break;

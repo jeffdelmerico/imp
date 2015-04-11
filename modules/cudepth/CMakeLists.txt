@@ -41,7 +41,7 @@ set(CU_SRCS
   src/cu_k_stereo_ctf_warping_level_precond_huber_l1_weighted.cuh
   src/stereo_ctf_warping_level_precond_huber_l1_weighted.cu
 
-  src/k_solver_epipolar_stereo_precond_huber_l1.cuh
+  src/cu_k_solver_epipolar_stereo_precond_huber_l1.cuh
   src/solver_epipolar_stereo_precond_huber_l1.cu
   )
 

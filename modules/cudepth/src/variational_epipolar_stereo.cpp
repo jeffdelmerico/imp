@@ -22,6 +22,12 @@ void VariationalEpipolarStereo::setFundamentalMatrix(const cu::Matrix3f& F)
   ctf_->setFundamentalMatrix(F);
 }
 
+//------------------------------------------------------------------------------
+void VariationalEpipolarStereo::setEpipoles(const std::vector<imp::Vec32fC2>& epipoles)
+{
+  ctf_->setEpipoles(epipoles);
+}
+
 
 //------------------------------------------------------------------------------
 void VariationalEpipolarStereo::setIntrinsics(const std::vector<cu::PinholeCamera>& cams)
